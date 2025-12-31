@@ -233,7 +233,7 @@
                 canvas.addEventListener('click', (e) => {
                     const rect = canvas.getBoundingClientRect();
                     const x = e.clientX - rect.left - 240;
-                    const y = 180 - (e.clientY - rect.top);
+                    const y = 150;
                     
                     this.coins.push(new Coin('dime', x, y, this.nextId++));
                 });
