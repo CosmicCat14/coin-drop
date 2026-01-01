@@ -34,6 +34,41 @@
             font-weight: bold;
             color: #FF0000;
         }
+        .bank-bonus {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            padding: 10px 20px;
+            background: linear-gradient(135deg, #FFD700, #FFA500);
+            border: 3px solid #FF8C00;
+            border-radius: 8px;
+            font-weight: bold;
+            color: #000;
+            cursor: pointer;
+            box-shadow: 0 5px 15px rgba(255,140,0,0.5);
+            transition: all 0.3s ease;
+            z-index: 10;
+        }
+        
+        .bank-bonus:hover {
+            transform: scale(1.1);
+            box-shadow: 0 8px 20px rgba(255,140,0,0.7);
+        }
+        
+        .bank-bonus.active {
+            background: linear-gradient(135deg, #00FF00, #00CC00);
+            border-color: #009900;
+            animation: pulse 0.5s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+        }
+        
+        .bank-bonus.hidden {
+            display: none;
+        }
         
         .info {
             margin-top: 20px;
@@ -73,15 +108,67 @@
         .highlight{
             background-color: yellow;
         }
+        .game-over {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.9);
+            color: white;
+            padding: 40px 60px;
+            border-radius: 20px;
+            text-align: center;
+            font-size: 48px;
+            font-weight: bold;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+            z-index: 20;
+            display: none;
+        }
+        
+        .game-over.show {
+            display: block;
+            animation: fadeIn 0.5s ease;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translate(-50%, -50%) scale(0.8); }
+            to { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+        }
+        
+        .game-over button {
+            margin-top: 20px;
+            padding: 15px 30px;
+            font-size: 24px;
+            background: #FFD700;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s ease;
+        }
+        
+        .game-over button:hover {
+            background: #FFA500;
+            transform: scale(1.1);
+        }
+        #warning{
+            background-color: red;
+        }
     </style>
 </head>
 <body>
     <div class="mega-counter">Mega Coins: <span id="megaCount">0</span></div>
+    High Score:<span id="max"></span>
     <canvas id="gameCanvas" width="480" height="360"></canvas>
-    <noscript>
-        <h1>Javascript Disabled</h1>
-        <p>This game uses Javascript to render the coins and the canvas. Please enable JavaScript to play.</p>
-    </noscript>
+    <div id="bankBonus" class="bank-bonus hidden">🏦 Bank Bonus<br><small>Click to Remove a Coin</small></div>
+    <div id="gameOver" class="game-over">
+            <div>GAME OVER!</div>
+            <div style="font-size: 24px; margin-top: 10px;">Coins reached the top!</div>
+            <button onclick="location.reload()">Play Again</button>
+        </div>
+    <div>
+        <span id="warning"></span>
+    </div>
     <div class="info">
         <h3>Click anywhere to drop coins! Match two of the same type to merge them!</h3>
         <div class="coin-legend">
@@ -125,6 +212,7 @@
     </div>
 
     <script>
+        document.getElementById('max').innerText = localStorage.getItem('high score');
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
         const RANKS = {
@@ -237,6 +325,8 @@
                 this.nextId = 1;
                 this.megaCoinsCount = 0;
                 this.nextCoin = "dime";
+                this.gameOver = false;
+                this.topWarningTimer = null;
                 this.setupEventListeners();
                 this.animate();
             }
@@ -246,9 +336,132 @@
                     const rect = canvas.getBoundingClientRect();
                     const x = e.clientX - rect.left - 240;
                     const y = 150;
-                    this.coins.push(new Coin(this.nextCoin,  x, y, this.nextId++));
-                    this.nextCoin = RANKS[Math.floor(Math.random() * 3)];
+                    // If bank bonus is active, try to remove a coin
+                    if (this.bankBonusActive) {
+                        this.removeCoinAtPosition(x, y);
+                    } else {
+                        // Normal coin drop
+                        this.coins.push(new Coin(this.nextCoin, x, y, this.nextId++));
+                        this.nextCoin = RANKS[Math.floor(Math.random() * 3)];
+                    }
                 });
+                
+                // Bank bonus button click handler
+                document.getElementById('bankBonus').addEventListener('click', (e) => {
+                    e.stopPropagation(); // Prevent click from reaching canvas
+                    if (this.bankBonusAvailable) {
+                        this.bankBonusActive = !this.bankBonusActive;
+                        const bonusBtn = document.getElementById('bankBonus');
+                        if (this.bankBonusActive) {
+                            bonusBtn.classList.add('active');
+                            canvas.style.cursor = 'pointer';
+                        } else {
+                            bonusBtn.classList.remove('active');
+                            canvas.style.cursor = 'crosshair';
+                        }
+                    }
+                });
+            }
+            
+            removeCoinAtPosition(clickX, clickY) {
+                console.log('Click position (canvas pixels):', clickX, clickY);
+                console.log('Total coins:', this.coins.length);
+                
+                // Find the coin closest to the click position
+                let closestCoin = null;
+                let closestDistance = Infinity;
+                
+                for (const coin of this.coins) {
+                    // Convert coin position to canvas pixels (same as in draw method)
+                    const coinPx = coin.x + 240;
+                    const coinPy = 180 - coin.y;
+                    
+                    const dx = coinPx - clickX;
+                    const dy = coinPy - clickY;
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+                    
+                    console.log(`Coin game coords: (${coin.x.toFixed(2)}, ${coin.y.toFixed(2)}), canvas pixels: (${coinPx.toFixed(2)}, ${coinPy.toFixed(2)}), distance: ${distance.toFixed(2)}, radius: ${coin.radius}`);
+                    
+                    // Find the absolute closest coin
+                    if (distance < closestDistance) {
+                        closestDistance = distance;
+                        closestCoin = coin;
+                    }
+                }
+                
+                console.log('Closest coin distance:', closestDistance.toFixed(2));
+                
+                // Remove the closest coin (no distance requirement)
+                if (closestCoin) {
+                    const index = this.coins.indexOf(closestCoin);
+                    if (index > -1) {
+                        this.coins.splice(index, 1);
+                        console.log('Coin removed!');
+                        // Deactivate and hide bank bonus after use
+                        this.bankBonusActive = false;
+                        this.bankBonusAvailable = false;
+                        document.getElementById('bankBonus').classList.add('hidden');
+                        document.getElementById('bankBonus').classList.remove('active');
+                        canvas.style.cursor = 'crosshair';
+                    }
+                }
+            }
+            
+            
+            showBankBonus() {
+                this.bankBonusAvailable = true;
+                const bonusBtn = document.getElementById('bankBonus');
+                bonusBtn.classList.remove('hidden');
+            }
+            checkGameOver() {
+                // Check if any coin is at the top of the screen
+                const topThreshold = 150; // Game coordinate (top area)
+                let coinAtTop = false;
+                
+                for (const coin of this.coins) {
+                    if (coin.y >= topThreshold) {
+                        coinAtTop = true;
+                        break;
+                    }
+                }
+                
+                if (coinAtTop && !this.topWarningTimer && !this.gameOver) {
+                    // Start a 1-second timer
+                    document.getElementById('warning').innerHTML = "uh-oh!"
+                setTimeout(() => {
+                    document.getElementById('warning').innerHTML = ""
+                }, 1000);
+                    this.topWarningTimer = setTimeout(() => {
+                        // Check again if coin is still at top
+                        let stillAtTop = false;
+                        for (const coin of this.coins) {
+                            if (coin.y >= topThreshold) {
+                                stillAtTop = true;
+                                break;
+                            }
+                        }
+                        
+                        if (stillAtTop) {
+                            this.triggerGameOver();
+                        }
+                        this.topWarningTimer = null;
+                    }, 1000);
+                } else if (!coinAtTop && this.topWarningTimer) {
+                    // Cancel timer if no coins at top anymore
+                    clearTimeout(this.topWarningTimer);
+                    this.topWarningTimer = null;
+                }
+            }
+            
+            triggerGameOver() {
+                this.gameOver = true;
+                document.getElementById('gameOver').classList.add('show');
+                canvas.style.cursor = 'default';
+                if (localStorage.getItem('high score') != null){
+                    if (parseInt(localStorage.getItem('high score') < this.megaCoinsCount)){
+                        localStorage.setItem('high score',this.megaCoinsCount )
+                    }
+                }
             }
             
             checkCollisions() {
@@ -328,6 +541,9 @@
                     this.megaCoinsCount++;
                     document.getElementById('megaCount').textContent = this.megaCoinsCount;
                     
+                    // Show bank bonus
+                    this.showBankBonus();
+                    
                     setTimeout(() => {
                         const index = this.coins.indexOf(megaCoin);
                         if (index > -1) {
@@ -339,7 +555,12 @@
                 this.coins = this.coins.filter(c => !coinsToRemove.has(c));
                 this.coins.push(...coinsToAdd);
             }
-            
+            warning(){
+                document.getElementById('warning').innerHTML = "uh-oh!"
+                setTimeout(() => {
+                    document.getElementById('warning').innerHTML = ""
+                }, 1000);
+            }
             animate() {
                 // Update all coins
                 this.coins.forEach(coin => coin.update());
@@ -369,11 +590,13 @@
             if(this.nextCoin == 'silver eagle') {
                 document.getElementById('3').classList.add('highlight');
             }
+
         };
     }
         // Start the game
         let game = new CoinSimulator();
         setInterval(function(){game.updateDisplay()},1); 
+        setInterval(function(){game.checkGameOver()},10); 
     </script>
 </body>
 </html>
