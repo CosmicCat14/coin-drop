@@ -160,7 +160,7 @@
     <div class="mega-counter">Mega Coins: <span id="megaCount">0</span></div>
     High Score:<svg height="32px" width="32px" viewBox="0 0 16 16" fill="none" aria-hidden="true" aria-labelledby=":r54:" class="loading"><circle cx="8" cy="8" r="7" stroke="currentColor" stroke-opacity="0.25" stroke-width="2" vector-effect="non-scaling-stroke"></circle><path d="M15 8a7.002 7.002 0 00-7-7" stroke="currentColor" stroke-width="2" stroke-linecap="round" vector-effect="non-scaling-stroke"></path></svg><span id="max"></span>
     <script>
-    let spinner = document.getElementsByClassName('loading')[0];
+    let spinner1 = document.getElementsByClassName('loading')[0];
     let rotateAmount = 0;
     setInterval(() => {
         if (rotateAmount == 360) {
@@ -168,13 +168,13 @@
         } else {
             rotateAmount++
         }
-        spinner.style.transform = `rotate(${rotateAmount}deg)`
+        spinner1.style.transform = `rotate(${rotateAmount}deg)`
     }, 5);
     </script>
+    <canvas id="gameCanvas" width="480" height="360"></canvas>
     <noscript>
         This game uses JavaScript to animate and render the coins and game canvas. Please enable JavaScript to play...
     </noscript>
-    <canvas id="gameCanvas" width="480" height="360"></canvas>
     <div id="bankBonus" class="bank-bonus hidden">🏦 Bank Bonus<br><small>Click to Remove a Coin</small></div>
     <div id="gameOver" class="game-over">
             <div>GAME OVER!</div>
