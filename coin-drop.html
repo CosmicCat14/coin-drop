@@ -70,6 +70,9 @@
             border-radius: 50%;
             border: 1px solid #333;
         }
+        .highlight{
+            background-color: yellow;
+        }
     </style>
 </head>
 <body>
@@ -78,15 +81,15 @@
     <div class="info">
         <h3>Click anywhere to drop coins! Match two of the same type to merge them!</h3>
         <div class="coin-legend">
-            <div class="coin-item">
+            <div class="coin-item" id="1">
                 <div class="coin-color" style="background: #40B0B0;"></div>
                 <span>Dime</span>
             </div>
-            <div class="coin-item">
+            <div class="coin-item"id="2">
                 <div class="coin-color" style="background: #FF0000;"></div>
                 <span>Cent</span>
             </div>
-            <div class="coin-item">
+            <div class="coin-item" id="3">
                 <div class="coin-color" style="background: #C0C0C0;"></div>
                 <span>Silver Eagle</span>
             </div>
@@ -120,7 +123,11 @@
     <script>
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
-        
+        const RANKS = {
+            0 : 'dime',
+            1 : 'cent',
+            2 : 'silver eagle',
+        };
         const COLORS = {
             'dime': '#40B0B0',
             'cent': '#FF0000',
@@ -190,8 +197,8 @@
                 }
                 
                 // Apply stronger damping to reduce vibration
-                this.xChange *= 0.90;
-                this.yChange *= 0.97;
+                this.xChange *= 0.95;
+                this.yChange *= 0.95;
                 
                 // Stop very small movements to prevent endless vibration
                 if (Math.abs(this.xChange) < 0.05) this.xChange = 0;
@@ -225,6 +232,7 @@
                 this.coins = [];
                 this.nextId = 1;
                 this.megaCoinsCount = 0;
+                this.nextCoin = "dime";
                 this.setupEventListeners();
                 this.animate();
             }
@@ -234,8 +242,8 @@
                     const rect = canvas.getBoundingClientRect();
                     const x = e.clientX - rect.left - 240;
                     const y = 150;
-                    
-                    this.coins.push(new Coin('dime', x, y, this.nextId++));
+                    this.coins.push(new Coin(this.nextCoin,  x, y, this.nextId++));
+                    this.nextCoin = RANKS[Math.floor(Math.random() * 3)];
                 });
             }
             
@@ -344,10 +352,24 @@
                 
                 requestAnimationFrame(() => this.animate());
             }
-        }
-        
+            updateDisplay(){
+                document.getElementById('3').classList.remove('highlight');
+                document.getElementById('2').classList.remove('highlight');
+                document.getElementById('1').classList.remove('highlight');
+            if (this.nextCoin == 'dime') {
+                document.getElementById('1').classList.add('highlight');
+            }
+            if(this.nextCoin == 'cent') {
+                document.getElementById('2').classList.add('highlight');
+            }
+            if(this.nextCoin == 'silver eagle') {
+                document.getElementById('3').classList.add('highlight');
+            }
+        };
+    }
         // Start the game
-        new CoinSimulator();
+        let game = new CoinSimulator();
+        setInterval(function(){game.updateDisplay()},1); 
     </script>
 </body>
 </html>
