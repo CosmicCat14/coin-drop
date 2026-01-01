@@ -154,11 +154,15 @@
         #warning{
             background-color: red;
         }
+        .loading{
+            transform: rotate(0deg);
+        }
     </style>
 </head>
 <body>
     <div class="mega-counter">Mega Coins: <span id="megaCount">0</span></div>
-    High Score:<span id="max"></span>
+    High Score:<svg height="32px" width="32px" viewBox="0 0 16 16" fill="none" aria-hidden="true" aria-labelledby=":r54:" class="loading"><circle cx="8" cy="8" r="7" stroke="currentColor" stroke-opacity="0.25" stroke-width="2" vector-effect="non-scaling-stroke"></circle><path d="M15 8a7.002 7.002 0 00-7-7" stroke="currentColor" stroke-width="2" stroke-linecap="round" vector-effect="non-scaling-stroke"></path></svg><span id="max"></span>
+    <script></script>
     <canvas id="gameCanvas" width="480" height="360"></canvas>
     <div id="bankBonus" class="bank-bonus hidden">🏦 Bank Bonus<br><small>Click to Remove a Coin</small></div>
     <div id="gameOver" class="game-over">
@@ -204,7 +208,7 @@
                 <div class="coin-color" style="background: #E5E4E2;"></div>
                 <span>Platinum Eagle</span>
             </div>
-            <div class="coin-item">
+            <div class="coin-item" id="mega">
                 <div class="coin-color" style="background: #FF0000;"></div>
                 <span>Mega Coin!</span>
             </div>
@@ -212,7 +216,7 @@
     </div>
 
     <script>
-        document.getElementById('max').innerText = localStorage.getItem('high score');
+
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
         const RANKS = {
@@ -329,6 +333,7 @@
                 this.topWarningTimer = null;
                 this.setupEventListeners();
                 this.animate();
+                this.highscore = 0;
             }
             
             setupEventListeners() {
@@ -419,6 +424,7 @@
                 let coinAtTop = false;
                 
                 for (const coin of this.coins) {
+                    if (coin.type == 'mega coin') {continue}
                     if (coin.y >= topThreshold) {
                         coinAtTop = true;
                         break;
@@ -457,11 +463,7 @@
                 this.gameOver = true;
                 document.getElementById('gameOver').classList.add('show');
                 canvas.style.cursor = 'default';
-                if (localStorage.getItem('high score') != null){
-                    if (parseInt(localStorage.getItem('high score') < this.megaCoinsCount)){
-                        localStorage.setItem('high score',this.megaCoinsCount )
-                    }
-                }
+                this.highscore = this.megaCoinsCount;
             }
             
             checkCollisions() {
@@ -550,6 +552,13 @@
                             this.coins.splice(index, 1);
                         }
                     }, 2000);
+                    //highlight the mega coin item
+                    document.getElementById('mega').classList.add('highlight');
+                    document.getElementById('megaCount').classList.add('highlight');
+                    setTimeout(() => {
+                        document.getElementById('mega').classList.remove('highlight');
+                        document.getElementById('megaCount').classList.remove('highlight');
+                }, 2000);
                 }
                 
                 this.coins = this.coins.filter(c => !coinsToRemove.has(c));
@@ -590,7 +599,6 @@
             if(this.nextCoin == 'silver eagle') {
                 document.getElementById('3').classList.add('highlight');
             }
-
         };
     }
         // Start the game
