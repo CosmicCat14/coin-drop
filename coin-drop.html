@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -154,11 +155,52 @@
         #warning{
             background-color: red;
         }
+         .upgrade-bonus {
+            position: absolute;
+            top: 70px;
+            right: 10px;
+            padding: 10px 20px;
+            background: linear-gradient(135deg, #9C27B0, #E91E63);
+            border: 3px solid #880E4F;
+            border-radius: 8px;
+            font-weight: bold;
+            color: white;
+            cursor: pointer;
+            box-shadow: 0 5px 15px rgba(136,14,79,0.5);
+            transition: all 0.3s ease;
+            z-index: 10;
+        }
+        
+        .upgrade-bonus:hover {
+            transform: scale(1.1);
+            box-shadow: 0 8px 20px rgba(136,14,79,0.7);
+        }
+        
+        .upgrade-bonus.active {
+            background: linear-gradient(135deg, #00FF00, #00CC00);
+            border-color: #009900;
+            animation: pulse 0.5s infinite;
+        }
+        
+        .upgrade-bonus.hidden {
+            display: none;
+        }
+        .hidden{
+            display: none;
+        }
+        .highlight{
+            animation: pulse 0.5s infinite;
+        }
     </style>
 </head>
 <body>
     <div class="mega-counter">Mega Coins: <span id="megaCount">0</span></div>
-    High Score:<svg height="32px" width="32px" viewBox="0 0 16 16" fill="none" aria-hidden="true" aria-labelledby=":r54:" class="loading"><circle cx="8" cy="8" r="7" stroke="currentColor" stroke-opacity="0.25" stroke-width="2" vector-effect="non-scaling-stroke"></circle><path d="M15 8a7.002 7.002 0 00-7-7" stroke="currentColor" stroke-width="2" stroke-linecap="round" vector-effect="non-scaling-stroke"></path></svg><span id="max"></span>
+    High Score:
+    <svg height="32px" width="32px" viewBox="0 0 16 16" fill="none" aria-hidden="true" aria-labelledby=":r54:" class="loading">
+        <circle cx="8" cy="8" r="7" stroke="currentColor" stroke-opacity="0.25" stroke-width="2" vector-effect="non-scaling-stroke"></circle>
+        <path d="M15 8a7.002 7.002 0 00-7-7" stroke="currentColor" stroke-width="2" stroke-linecap="round" vector-effect="non-scaling-stroke"></path>
+    </svg>
+    <span id="max"></span>
     <script>
     let spinner1 = document.getElementsByClassName('loading')[0];
     let rotateAmount = 0;
@@ -176,6 +218,8 @@
         This game uses JavaScript to animate and render the coins and game canvas. Please enable JavaScript to play...
     </noscript>
     <div id="bankBonus" class="bank-bonus hidden">🏦 Bank Bonus<br><small>Click to Remove a Coin</small></div>
+    <div id="upgradeBonus" class="upgrade-bonus hidden">⬆️ Upgrade Bonus<br><small>Drop to Upgrade a Coin</small></div>
+
     <div id="gameOver" class="game-over">
             <div>GAME OVER!</div>
             <div style="font-size: 24px; margin-top: 10px;">Coins reached the top!</div>
@@ -270,9 +314,19 @@
             'walking liberty+walking liberty': 'franklin half',
             'franklin half+franklin half': 'platinum eagle'
         };
-        
+        const UPGRADE_MAP = {
+            'dime': 'cent',
+            'cent': 'silver eagle',
+            'silver eagle': 'gold coin',
+            'gold coin': 'standing Liberty',
+            'standing Liberty': 'walking liberty',
+            'walking liberty': 'franklin half',
+            'franklin half': 'platinum eagle',
+            'platinum eagle': 'platinum eagle' // Max level
+        };
+       
         class Coin {
-            constructor(type, x, y, id) {
+            constructor(type, x, y, id, isUpgradeBonus = false) {
                 this.type = type;
                 this.x = x;
                 this.y = y;
@@ -280,18 +334,14 @@
                 this.xChange = 0;
                 this.yChange = 0;
                 this.radius = SIZES[type];
-                this.toRemove = false;
+                this.isUpgradeBonus = isUpgradeBonus;
             }
             
             update() {
-                // Apply gravity
                 this.yChange -= 0.5;
-                
-                // Update position
                 this.x += this.xChange;
                 this.y += this.yChange;
                 
-                // Bounce off edges
                 if (this.x < -240 + this.radius) {
                     this.x = -240 + this.radius;
                     this.xChange = Math.abs(this.xChange) * 0.8;
@@ -305,13 +355,11 @@
                     this.yChange = Math.abs(this.yChange) * 0.8;
                 }
                 
-                // Apply stronger damping to reduce vibration
                 this.xChange *= 0.95;
                 this.yChange *= 0.95;
                 
-                // Stop very small movements to prevent endless vibration
-                if (Math.abs(this.xChange) < 0.05) this.xChange = 0;
-                if (Math.abs(this.yChange) < 0.05) this.yChange = 0;
+                if (Math.abs(this.xChange) < 0.01) this.xChange = 0;
+                if (Math.abs(this.yChange) < 0.01) this.yChange = 0;
             }
             
             draw() {
@@ -326,7 +374,19 @@
                 ctx.lineWidth = 2;
                 ctx.stroke();
                 
-                // Add shine effect for mega coin
+                if (this.isUpgradeBonus) {
+                    ctx.beginPath();
+                    ctx.arc(px, py, this.radius, 0, Math.PI * 2);
+                    ctx.strokeStyle = '#FF00FF';
+                    ctx.lineWidth = 4;
+                    ctx.stroke();
+                    
+                    ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
+                    ctx.beginPath();
+                    ctx.arc(px - this.radius/3, py - this.radius/3, this.radius/4, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+                
                 if (this.type === 'mega coin') {
                     ctx.beginPath();
                     ctx.arc(px - this.radius/3, py - this.radius/3, this.radius/3, 0, Math.PI * 2);
@@ -341,142 +401,100 @@
                 this.coins = [];
                 this.nextId = 1;
                 this.megaCoinsCount = 0;
-                this.nextCoin = "dime";
+                this.bankBonusActive = false;
+                this.upgradeBonusActive = false;
                 this.gameOver = false;
                 this.topWarningTimer = null;
+                this.nextCoin = 'dime';
                 this.setupEventListeners();
                 this.animate();
-                this.highscore = 0;
             }
             
             setupEventListeners() {
                 canvas.addEventListener('click', (e) => {
+                    if (this.gameOver) return;
+                    
                     const rect = canvas.getBoundingClientRect();
-                    const x = e.clientX - rect.left - 240;
+                    const clickX = e.clientX - rect.left;
+                    const x = clickX - 240;
                     const y = 150;
-                    // If bank bonus is active, try to remove a coin
+                    
                     if (this.bankBonusActive) {
-                        this.removeCoinAtPosition(x, y);
+                        this.removeCoinAtPosition(clickX, clickY);
+                    } else if (this.upgradeBonusActive) {
+                        const upgradeCoin = new Coin('dime', x, y, this.nextId++, true);
+                        this.coins.push(upgradeCoin);
+                        this.upgradeBonusActive = false;
+                        document.getElementById('upgradeBonus').classList.add('hidden');
+                        document.getElementById('upgradeBonus').classList.remove('active');
+                        canvas.style.cursor = 'crosshair';
                     } else {
-                        // Normal coin drop
                         this.coins.push(new Coin(this.nextCoin, x, y, this.nextId++));
                         this.nextCoin = RANKS[Math.floor(Math.random() * 3)];
                     }
                 });
                 
-                // Bank bonus button click handler
                 document.getElementById('bankBonus').addEventListener('click', (e) => {
-                    e.stopPropagation(); // Prevent click from reaching canvas
-                    if (this.bankBonusAvailable) {
-                        this.bankBonusActive = !this.bankBonusActive;
-                        const bonusBtn = document.getElementById('bankBonus');
-                        if (this.bankBonusActive) {
-                            bonusBtn.classList.add('active');
-                            canvas.style.cursor = 'pointer';
-                        } else {
-                            bonusBtn.classList.remove('active');
-                            canvas.style.cursor = 'crosshair';
+                    e.stopPropagation();
+                    this.bankBonusActive = !this.bankBonusActive;
+                    const btn = document.getElementById('bankBonus');
+                    if (this.bankBonusActive) {
+                        btn.classList.add('active');
+                        canvas.style.cursor = 'pointer';
+                        if (this.upgradeBonusActive) {
+                            this.upgradeBonusActive = false;
+                            document.getElementById('upgradeBonus').classList.remove('active');
                         }
+                    } else {
+                        btn.classList.remove('active');
+                        canvas.style.cursor = 'crosshair';
+                    }
+                });
+                
+                document.getElementById('upgradeBonus').addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    this.upgradeBonusActive = !this.upgradeBonusActive;
+                    const btn = document.getElementById('upgradeBonus');
+                    if (this.upgradeBonusActive) {
+                        btn.classList.add('active');
+                        canvas.style.cursor = 'crosshair';
+                        if (this.bankBonusActive) {
+                            this.bankBonusActive = false;
+                            document.getElementById('bankBonus').classList.remove('active');
+                        }
+                    } else {
+                        btn.classList.remove('active');
+                        canvas.style.cursor = 'crosshair';
                     }
                 });
             }
-            
             removeCoinAtPosition(clickX, clickY) {
-                console.log('Click position (canvas pixels):', clickX, clickY);
-                console.log('Total coins:', this.coins.length);
-                
-                // Find the coin closest to the click position
                 let closestCoin = null;
                 let closestDistance = Infinity;
                 
                 for (const coin of this.coins) {
-                    // Convert coin position to canvas pixels (same as in draw method)
                     const coinPx = coin.x + 240;
                     const coinPy = 180 - coin.y;
-                    
                     const dx = coinPx - clickX;
                     const dy = coinPy - clickY;
                     const distance = Math.sqrt(dx * dx + dy * dy);
                     
-                    console.log(`Coin game coords: (${coin.x.toFixed(2)}, ${coin.y.toFixed(2)}), canvas pixels: (${coinPx.toFixed(2)}, ${coinPy.toFixed(2)}), distance: ${distance.toFixed(2)}, radius: ${coin.radius}`);
-                    
-                    // Find the absolute closest coin
                     if (distance < closestDistance) {
                         closestDistance = distance;
                         closestCoin = coin;
                     }
                 }
                 
-                console.log('Closest coin distance:', closestDistance.toFixed(2));
-                
-                // Remove the closest coin (no distance requirement)
                 if (closestCoin) {
                     const index = this.coins.indexOf(closestCoin);
                     if (index > -1) {
                         this.coins.splice(index, 1);
-                        console.log('Coin removed!');
-                        // Deactivate and hide bank bonus after use
                         this.bankBonusActive = false;
-                        this.bankBonusAvailable = false;
                         document.getElementById('bankBonus').classList.add('hidden');
                         document.getElementById('bankBonus').classList.remove('active');
                         canvas.style.cursor = 'crosshair';
                     }
                 }
-            }
-            
-            
-            showBankBonus() {
-                this.bankBonusAvailable = true;
-                const bonusBtn = document.getElementById('bankBonus');
-                bonusBtn.classList.remove('hidden');
-            }
-            checkGameOver() {
-                // Check if any coin is at the top of the screen
-                const topThreshold = 150; // Game coordinate (top area)
-                let coinAtTop = false;
-                
-                for (const coin of this.coins) {
-                    if (coin.type == 'mega coin') {continue}
-                    if (coin.y >= topThreshold) {
-                        coinAtTop = true;
-                        break;
-                    }
-                }
-                
-                if (coinAtTop && !this.topWarningTimer && !this.gameOver) {
-                    // Start a 1-second timer
-                    document.getElementById('warning').innerHTML = "uh-oh!"
-                setTimeout(() => {
-                    document.getElementById('warning').innerHTML = ""
-                }, 1000);
-                    this.topWarningTimer = setTimeout(() => {
-                        // Check again if coin is still at top
-                        let stillAtTop = false;
-                        for (const coin of this.coins) {
-                            if (coin.y >= topThreshold) {
-                                stillAtTop = true;
-                                break;
-                            }
-                        }
-                        
-                        if (stillAtTop) {
-                            this.triggerGameOver();
-                        }
-                        this.topWarningTimer = null;
-                    }, 1000);
-                } else if (!coinAtTop && this.topWarningTimer) {
-                    // Cancel timer if no coins at top anymore
-                    clearTimeout(this.topWarningTimer);
-                    this.topWarningTimer = null;
-                }
-            }
-            
-            triggerGameOver() {
-                this.gameOver = true;
-                document.getElementById('gameOver').classList.add('show');
-                canvas.style.cursor = 'default';
-                this.highscore = this.megaCoinsCount;
             }
             
             checkCollisions() {
@@ -498,50 +516,64 @@
                         const minDistance = coin.radius + other.radius;
                         
                         if (distance < minDistance) {
-                            const fusionKey = `${coin.type}+${other.type}`;
-                            const fusionKeyReverse = `${other.type}+${coin.type}`;
-                            
-                            if (FUSION_RULES[fusionKey] || FUSION_RULES[fusionKeyReverse]) {
-                                const newType = FUSION_RULES[fusionKey] || FUSION_RULES[fusionKeyReverse];
-                                
-                                const newX = (coin.x + other.x) / 2;
-                                const newY = (coin.y + other.y) / 2;
-                                
-                                const newCoin = new Coin(newType, newX, newY, this.nextId++);
-                                newCoin.xChange = (coin.xChange + other.xChange) / 2;
-                                newCoin.yChange = (coin.yChange + other.yChange) / 2;
-                                
+                            if (coin.isUpgradeBonus && !other.isUpgradeBonus) {
+                                const newType = UPGRADE_MAP[other.type];
+                                const newCoin = new Coin(newType, other.x, other.y, this.nextId++);
+                                newCoin.xChange = other.xChange;
+                                newCoin.yChange = other.yChange;
+                                coinsToRemove.add(coin);
+                                coinsToRemove.add(other);
+                                coinsToAdd.push(newCoin);
+                                break;
+                            } else if (other.isUpgradeBonus && !coin.isUpgradeBonus) {
+                                const newType = UPGRADE_MAP[coin.type];
+                                const newCoin = new Coin(newType, coin.x, coin.y, this.nextId++);
+                                newCoin.xChange = coin.xChange;
+                                newCoin.yChange = coin.yChange;
                                 coinsToRemove.add(coin);
                                 coinsToRemove.add(other);
                                 coinsToAdd.push(newCoin);
                                 break;
                             } else {
-                                // Normal collision
-                                const angle = Math.atan2(dy, dx);
-                                const overlap = minDistance - distance;
+                                const fusionKey = `${coin.type}+${other.type}`;
+                                const fusionKeyReverse = `${other.type}+${coin.type}`;
                                 
-                                if (distance > 0) {
-                                    coin.x += (dx / distance) * overlap * 0.5;
-                                    coin.y += (dy / distance) * overlap * 0.5;
-                                    other.x -= (dx / distance) * overlap * 0.5;
-                                    other.y -= (dy / distance) * overlap * 0.5;
+                                if (FUSION_RULES[fusionKey] || FUSION_RULES[fusionKeyReverse]) {
+                                    const newType = FUSION_RULES[fusionKey] || FUSION_RULES[fusionKeyReverse];
+                                    const newX = (coin.x + other.x) / 2;
+                                    const newY = (coin.y + other.y) / 2;
+                                    const newCoin = new Coin(newType, newX, newY, this.nextId++);
+                                    newCoin.xChange = (coin.xChange + other.xChange) / 2;
+                                    newCoin.yChange = (coin.yChange + other.yChange) / 2;
+                                    coinsToRemove.add(coin);
+                                    coinsToRemove.add(other);
+                                    coinsToAdd.push(newCoin);
+                                    break;
+                                } else {
+                                    const angle = Math.atan2(dy, dx);
+                                    const overlap = minDistance - distance;
+                                    
+                                    if (distance > 0) {
+                                        coin.x += (dx / distance) * overlap * 0.5;
+                                        coin.y += (dy / distance) * overlap * 0.5;
+                                        other.x -= (dx / distance) * overlap * 0.5;
+                                        other.y -= (dy / distance) * overlap * 0.5;
+                                    }
+                                    
+                                    coin.xChange += Math.cos(angle) * 1.5;
+                                    coin.yChange += Math.sin(angle) * 1.5;
+                                    other.xChange -= Math.cos(angle) * 1.5;
+                                    other.yChange -= Math.sin(angle) * 1.5;
                                 }
-                                
-                                coin.xChange += Math.cos(angle) * 1.5;
-                                coin.yChange += Math.sin(angle) * 1.5;
-                                other.xChange -= Math.cos(angle) * 1.5;
-                                other.yChange -= Math.sin(angle) * 1.5;
                             }
                         }
                     }
                 }
                 
-                // Check for mega coin creation
                 const platinumCoins = this.coins.filter(c => c.type === 'platinum eagle' && !coinsToRemove.has(c));
                 if (platinumCoins.length >= 2) {
                     const coin1 = platinumCoins[0];
                     const coin2 = platinumCoins[1];
-                    
                     const newX = (coin1.x + coin2.x) / 2;
                     const newY = (coin1.y + coin2.y) / 2;
                     const megaCoin = new Coin('mega coin', newX, newY, this.nextId++);
@@ -552,58 +584,82 @@
                     coinsToRemove.add(coin2);
                     coinsToAdd.push(megaCoin);
                     
-                    // Increment mega coin counter
                     this.megaCoinsCount++;
                     document.getElementById('megaCount').textContent = this.megaCoinsCount;
                     
-                    // Show bank bonus
-                    this.showBankBonus();
+                    if (this.megaCoinsCount % 2 === 1) {
+                        document.getElementById('bankBonus').classList.remove('hidden');
+                    } else {
+                        document.getElementById('upgradeBonus').classList.remove('hidden');
+                    }
                     
                     setTimeout(() => {
                         const index = this.coins.indexOf(megaCoin);
-                        if (index > -1) {
-                            this.coins.splice(index, 1);
-                        }
+                        if (index > -1) this.coins.splice(index, 1);
                     }, 2000);
-                    //highlight the mega coin item
-                    document.getElementById('mega').classList.add('highlight');
-                    document.getElementById('megaCount').classList.add('highlight');
-                    setTimeout(() => {
-                        document.getElementById('mega').classList.remove('highlight');
-                        document.getElementById('megaCount').classList.remove('highlight');
-                }, 2000);
                 }
                 
                 this.coins = this.coins.filter(c => !coinsToRemove.has(c));
                 this.coins.push(...coinsToAdd);
             }
-            warning(){
-                document.getElementById('warning').innerHTML = "uh-oh!"
-                setTimeout(() => {
-                    document.getElementById('warning').innerHTML = ""
-                }, 1000);
+            
+            checkGameOver() {
+                const topThreshold = 150;
+                let coinAtTop = false;
+                
+                for (const coin of this.coins) {
+                    if (coin.y >= topThreshold) {
+                        coinAtTop = true;
+                        break;
+                    }
+                }
+                
+                if (coinAtTop && !this.topWarningTimer && !this.gameOver) {
+                    this.topWarningTimer = setTimeout(() => {
+                        let stillAtTop = false;
+                        for (const coin of this.coins) {
+                            if (coin.y >= topThreshold) {
+                                stillAtTop = true;
+                                break;
+                            }
+                        }
+                        if (stillAtTop) {
+                            this.gameOver = true;
+                            document.getElementById('gameOver').classList.add('show');
+                            canvas.style.cursor = 'default';
+                        }
+                        this.topWarningTimer = null;
+                    }, 1000);
+                } else if (!coinAtTop && this.topWarningTimer) {
+                    clearTimeout(this.topWarningTimer);
+                    this.topWarningTimer = null;
+                }
             }
+            
             animate() {
-                // Update all coins
+                if (this.gameOver) {
+                    ctx.fillStyle = '#87CEEB';
+                    ctx.fillRect(0, 0, canvas.width, canvas.height);
+                    this.coins.forEach(coin => coin.draw());
+                    return;
+                }
+                
                 this.coins.forEach(coin => coin.update());
-                
-                // Check collisions
                 this.checkCollisions();
+                this.checkGameOver();
                 
-                // Clear canvas
                 ctx.fillStyle = '#87CEEB';
                 ctx.fillRect(0, 0, canvas.width, canvas.height);
-                
-                // Draw all coins
                 this.coins.forEach(coin => coin.draw());
                 
                 requestAnimationFrame(() => this.animate());
             }
             updateDisplay(){
+                spinner1.style.cursor = 'wait';
                 document.getElementById('3').classList.remove('highlight');
                 document.getElementById('2').classList.remove('highlight');
                 document.getElementById('1').classList.remove('highlight');
-            if (this.nextCoin == 'dime') {
+            if (game.nextCoin == 'dime') {
                 document.getElementById('1').classList.add('highlight');
             }
             if(this.nextCoin == 'cent') {
@@ -612,12 +668,27 @@
             if(this.nextCoin == 'silver eagle') {
                 document.getElementById('3').classList.add('highlight');
             }
+            if (this.highscore != undefined){
+                spinner1.classList.add('hidden');
+                document.getElementById('max').innerText = this.highscore;
+                spinner1.style.cursor = 'default';
+            }
         };
     }
         // Start the game
         let game = new CoinSimulator();
         setInterval(function(){game.updateDisplay()},1); 
-        setInterval(function(){game.checkGameOver()},10); 
+        setInterval(function(){game.checkGameOver()},10);
+        setInterval(() => {
+            game.highscore = game.megaCoinsCount;
+        }, 1000);
+        window.addEventListener("beforeunload", function(event) {
+            if(game.gameOver == false){
+            var confirmationMessage = "Are you sure exit the game?";
+            (event || window.event).returnValue = confirmationMessage; 
+            return confirmationMessage;
+            }
+        });
     </script>
 </body>
 </html>
