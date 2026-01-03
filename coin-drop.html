@@ -1,4 +1,5 @@
 
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -195,6 +196,7 @@
 </head>
 <body>
     <div class="mega-counter">Mega Coins: <span id="megaCount">0</span></div>
+    <div class="score">Score: <span id="score">0</span>%</div>
     High Score:
     <svg height="32px" width="32px" viewBox="0 0 16 16" fill="none" aria-hidden="true" aria-labelledby=":r54:" class="loading">
         <circle cx="8" cy="8" r="7" stroke="currentColor" stroke-opacity="0.25" stroke-width="2" vector-effect="non-scaling-stroke"></circle>
@@ -324,7 +326,17 @@
             'franklin half': 'platinum eagle',
             'platinum eagle': 'platinum eagle' // Max level
         };
-       
+        const VALUES = {
+            'dime': 0.2,
+            'cent': 0.5,
+            'silver eagle': 1.1,
+            'gold coin': 3.2,
+            'standing Liberty': 6.3,
+            'walking liberty': 12.5,
+            'franklin half': 25,
+            'platinum eagle': 50,
+            'mega coin': 100,
+        };
         class Coin {
             constructor(type, x, y, id, isUpgradeBonus = false) {
                 this.type = type;
@@ -406,6 +418,9 @@
                 this.gameOver = false;
                 this.topWarningTimer = null;
                 this.nextCoin = 'dime';
+                this.score = 0;
+                this.bbAvail = 0;
+                this.ubAvail = 0;
                 this.setupEventListeners();
                 this.animate();
             }
@@ -416,17 +431,20 @@
                     
                     const rect = canvas.getBoundingClientRect();
                     const clickX = e.clientX - rect.left;
+                    const clickY = e.clientY - rect.top;
                     const x = clickX - 240;
                     const y = 150;
                     
                     if (this.bankBonusActive) {
                         this.removeCoinAtPosition(clickX, clickY);
+                        this.bbAvail = 0
                     } else if (this.upgradeBonusActive) {
                         const upgradeCoin = new Coin('dime', x, y, this.nextId++, true);
                         this.coins.push(upgradeCoin);
                         this.upgradeBonusActive = false;
                         document.getElementById('upgradeBonus').classList.add('hidden');
                         document.getElementById('upgradeBonus').classList.remove('active');
+                        this.ubAvail = 0;
                         canvas.style.cursor = 'crosshair';
                     } else {
                         this.coins.push(new Coin(this.nextCoin, x, y, this.nextId++));
@@ -548,6 +566,10 @@
                                     coinsToRemove.add(coin);
                                     coinsToRemove.add(other);
                                     coinsToAdd.push(newCoin);
+                                    this.score += VALUES[newType];
+                                    this.bbAvail += VALUES[newType];
+                                    this.ubAvail += VALUES[newType];
+                                    this.score.toFixed(1)
                                     break;
                                 } else {
                                     const angle = Math.atan2(dy, dx);
@@ -586,13 +608,6 @@
                     
                     this.megaCoinsCount++;
                     document.getElementById('megaCount').textContent = this.megaCoinsCount;
-                    
-                    if (this.megaCoinsCount % 2 === 1) {
-                        document.getElementById('bankBonus').classList.remove('hidden');
-                    } else {
-                        document.getElementById('upgradeBonus').classList.remove('hidden');
-                    }
-                    
                     setTimeout(() => {
                         const index = this.coins.indexOf(megaCoin);
                         if (index > -1) this.coins.splice(index, 1);
@@ -659,6 +674,7 @@
                 document.getElementById('3').classList.remove('highlight');
                 document.getElementById('2').classList.remove('highlight');
                 document.getElementById('1').classList.remove('highlight');
+                document.getElementById('score').innerText = this.score;
             if (game.nextCoin == 'dime') {
                 document.getElementById('1').classList.add('highlight');
             }
@@ -672,6 +688,11 @@
                 spinner1.classList.add('hidden');
                 document.getElementById('max').innerText = this.highscore;
                 spinner1.style.cursor = 'default';
+            }
+            if (this.bbAvail >= 250) {
+                document.getElementById('bankBonus').classList.remove('hidden');
+            } else if (this.ubAvail >= 350){
+                document.getElementById('upgradeBonus').classList.remove('hidden');
             }
         };
     }
