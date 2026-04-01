@@ -6,6 +6,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Coin Drop Game</title>
     <style>
+        .hidden{
+            display: none;
+        }
         body {
             margin: 0;
             padding: 20px;
@@ -68,7 +71,9 @@
         }
         
         .bank-bonus.hidden {
-            display: none;
+            display:initial;
+            background: linear-gradient(135deg, #c6c6c6, #cccccc);
+            cursor:not-allowed;
         }
         
         .info {
@@ -183,10 +188,9 @@
         }
         
         .upgrade-bonus.hidden {
-            display: none;
-        }
-        .hidden{
-            display: none;
+            background: linear-gradient(135deg, #b0b0b0, #dddddd);
+            display:initial;
+            cursor:not-allowed;
         }
         .highlight{
             animation: pulse 0.5s infinite;
